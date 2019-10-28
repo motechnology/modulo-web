@@ -2,47 +2,76 @@ from flask import Flask, jsonify
 from flask import abort
 from flask import request
 from flask import json
-
 import pprint
 import pymongo
-from bson.raw_bson import RawBSONDocument
+import time
+import datetime
 from pymongo import MongoClient
 from bson.json_util import dumps
 
 cliente = MongoClient('127.0.0.1')
 db = cliente.test
 dados = db.medicoes
-users = db.arduinos
-
+users = db.arduino
 
 app = Flask(__name__)
 
+
 @app.route('/medicoes', methods=['GET'])
 def get_medicoes():
-    print(dumps(dados.find()))
-    return jsonify(dumps(dados.find())), 200
+    print("Sem dumps: ", dados.find( manipulate = False))
+    return jsonify(dumps(dados.find(manipulate=False))), 200
 
 # Retorna os dados de mediçao de um unico arduino
 @app.route('/medicoes/<int:ard_id>', methods=['GET'])
 def get_med(ard_id):
-    return jsonify(dumps(dados.find_one({'id': ard_id}))), 200
+    print(dados.find_one({'id': ard_id}, manipulate=False))
+    return jsonify(dumps(dados.find_one({'id': ard_id}, manipulate=False))), 200
 
 # Método post para adicionar novas medicoes
 @app.route('/medicoes', methods=['POST'])
 def post_medida():
+    dicionario = dict()
+
     if not request.json or not 'id' in request.json:
         abort(400)
+
+    # Verifica nome do usuário
     try:
-        nova_medicao = {
-            'id': request.json['id'],
-            'u': request.json.get('u', ""),
-            't': request.json.get('t', ""),
-            'tm': request.json.get('tm')
-        }
-        dados.insert_one(nova_medicao)
-        return jsonify(dumps(nova_medicao)), 201
-    except Exception as e:
-        abort(401)
+        dicionario['id'] = request.json['id']
+        dicionario['s'] = request.json['s']
+    except:
+        return "Bad Request", 400
+    else:
+        usuario = users.find_one(dicionario)
+        print(usuario)
+        if usuario is None:
+            return "Unauthorized", 401
+
+    try:
+        u = int(request.json.get('u'))
+    except:
+        pass
+    else:
+        dicionario['umidade'] = u
+
+    try:
+        t = int(request.json.get('t'))
+    except:
+        pass
+    else:
+        dicionario['temperatura'] = t
+    try:
+        data_str = request.json.get('data')
+    except:
+        pass
+    else:
+        data = datetime.datetime.strptime(data_str, "%d/%m/%Y %H:%M:%S").timestamp()
+        dicionario['data'] = data
+
+    dados.insert(dicionario, manipulate=False)
+    print(dicionario)
+    return dicionario, 201
 
 
 if __name__ == "__main__":
