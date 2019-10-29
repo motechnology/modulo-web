@@ -19,14 +19,13 @@ app = Flask(__name__)
 
 @app.route('/medicoes', methods=['GET'])
 def get_medicoes():
-    print("Sem dumps: ", dados.find( manipulate = False))
-    return jsonify(dumps(dados.find(manipulate=False))), 200
+    print("Sem dumps: ", dados.find(manipulate=False))
+    return dumps(dados.find({}, {'_id': False, 'id': True, 'umidade': True, 'temperatura': True, 'data': True})), 200
 
 # Retorna os dados de mediçao de um unico arduino
-@app.route('/medicoes/<int:ard_id>', methods=['GET'])
+@app.route('/medicoes/<ard_id>', methods=['GET'])
 def get_med(ard_id):
-    print(dados.find_one({'id': ard_id}, manipulate=False))
-    return jsonify(dumps(dados.find_one({'id': ard_id}, manipulate=False))), 200
+    return dumps(dados.find_one({},{'_id': False, 'id': ard_id, 'umidade': True, 'temperatura': True, 'data': True})), 200
 
 # Método post para adicionar novas medicoes
 @app.route('/medicoes', methods=['POST'])
@@ -44,7 +43,6 @@ def post_medida():
         return "Bad Request", 400
     else:
         usuario = users.find_one(dicionario)
-        print(usuario)
         if usuario is None:
             return "Unauthorized", 401
 
@@ -66,11 +64,13 @@ def post_medida():
     except:
         pass
     else:
-        data = datetime.datetime.strptime(data_str, "%d/%m/%Y %H:%M:%S").timestamp()
+        data = datetime.datetime.strptime(
+            data_str, "%d/%m/%Y %H:%M:%S").timestamp()
         dicionario['data'] = data
 
     dados.insert(dicionario, manipulate=False)
     print(dicionario)
+
     return dicionario, 201
 
 
