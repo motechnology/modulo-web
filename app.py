@@ -65,7 +65,7 @@ def post_medida():
         pass
     else:
         data = datetime.datetime.strptime(
-            data_str, "%d/%m/%Y %H:%M:%S").timestamp()
+            data_str, "%d/%m/%Y %H:%M").timestamp()
         dicionario['data'] = data
 
     dados.insert(dicionario, manipulate=False)
