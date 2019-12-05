@@ -8,6 +8,7 @@ import time
 import datetime
 from pymongo import MongoClient
 from bson.json_util import dumps
+import os
 
 cliente = MongoClient('127.0.0.1')
 db = cliente.test
@@ -15,35 +16,25 @@ dados = db.medicoes
 users = db.arduino
 listaIDs = dados.distinct("id")
 
-
 app = Flask(__name__)
 
-
-@app.route('/medicoes', methods=['GET'])
-def get_medicoes():
-   # print("Sem dumps: ", dados.find(manipulate=False))
-    return dumps(dados.find({}, {'_id': False, 'id': True, 'umidade': True, 'temperatura': True, 'data': True})), 200
-
-# Retorna os dados de mediçao de um unico arduino
-@app.route('/medicoes/<ard_id>', methods=['GET'])
-def get_med(ard_id):
-    return dumps(dados.find({'id': ard_id}, {'_id': False, 'id': ard_id, 'umidade': True, 'temperatura': True, 'data': True})), 200
 
 # Método post para adicionar novas medicoes
 @app.route('/medicoes', methods=['POST'])
 def post_medida():
-    dicionario = dict()
+    novaMedida = dict()
 
     if not request.json or not 'id' in request.json:
         abort(400)
-    # Verifica nome do usuário
+    #Verifica se o arduino que encaminhou a medição está contido na coleção de arduinos do
+    #sistema de coleta
     try:
-        dicionario['id'] = request.json['id']
-        dicionario['s'] = request.json['s']
+        novaMedida['id'] = request.json['id']
+        novaMedida['s'] = request.json['s']
     except:
         return "Bad Request", 400
     else:
-        usuario = users.find_one(dicionario)
+        usuario = users.find_one(novaMedida)
         if usuario is None:
             return "Unauthorized", 401
 
@@ -52,14 +43,14 @@ def post_medida():
     except:
         pass
     else:
-        dicionario['umidade'] = u
+        novaMedida['umidade'] = u
 
     try:
         t = int(request.json.get('t'))
     except:
         pass
     else:
-        dicionario['temperatura'] = t
+        novaMedida['temperatura'] = t
 
     try:
         data_str = request.json.get('data')
@@ -68,15 +59,16 @@ def post_medida():
     else:
         data = datetime.datetime.strptime(
             data_str, "%d/%m/%Y %H:%M").timestamp()
-        dicionario['data'] = data
+        novaMedida['data'] = data
 
-    dados.insert(dicionario, manipulate=False)
-    print(dicionario)
+    dados.insert(novaMedida, manipulate=False)
+    print(novaMedida)
 
-    return dicionario, 201
+    return novaMedida, 201
 
 
-@app.route('/medicoes.html', methods=['GET'])
+#Método para retornar gráficos com todos os arduinos do sistema
+@app.route('/medicoes', methods=['GET'])
 def geraGraficos():
 
     pagina = """
@@ -87,12 +79,18 @@ def geraGraficos():
             <title> Lendo a temperatura com o Arduino </title >
             <link href="https://cdn.jsdelivr.net/chartist.js/latest/chartist.min.css" rel="stylesheet" type="text/css" />
         </head>
-
         <body>
-            <div class="ct-chart ct-major-seventh" id="chart1"></div>
-            <div class="ct-chart ct-major-seventh" id="chart2"></div>
+            <div style="display:flex; flex-direction: row; justify-content: center; align-items: center">
+                <h1>Umidade (%)</h1>
+                <div class="ct-chart ct-major-seventh" id="chart1"></div>
+            </div>
+            <center><h1>Data da coleta</h1></center>
+            <div style="display:flex; flex-direction: row; justify-content: center; align-items: center">
+                <h1>Temperatura (°C)</h1>
+                <div class="ct-chart ct-major-seventh" id="chart2"></div>
+            </div>
+            <center><h1>Data da coleta</h1></center>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.js"></script>
-
             <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/locale/pt-br.js"></script>
             <script src="https://cdn.jsdelivr.net/chartist.js/latest/chartist.min.js"></script>
             <script>
@@ -149,13 +147,12 @@ def geraGraficos():
     pagina += " </script>\n"
     pagina += "  </body>\n"
     pagina += "</html>\n"
-
     return pagina, 200
 
-
-@app.route('/medicoes/<ard_id>.html')
+#Método para retornar gráfico de um arduino específico
+@app.route('/medicoes/<ard_id>', methods=['GET'])
 def geraGraficoUmArduino(ard_id):
-    pagina = """
+    pagina = pagina = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -163,12 +160,18 @@ def geraGraficoUmArduino(ard_id):
             <title> Lendo a temperatura com o Arduino </title >
             <link href="https://cdn.jsdelivr.net/chartist.js/latest/chartist.min.css" rel="stylesheet" type="text/css" />
         </head>
-
         <body>
-            <div class="ct-chart ct-major-seventh" id="chart1"></div>
-            <div class="ct-chart ct-major-seventh" id="chart2"></div>
+            <div style="display:flex; flex-direction: row; justify-content: center; align-items: center">
+                <h1>Umidade (%)</h1>
+                <div class="ct-chart ct-major-seventh" id="chart1"></div>
+            </div>
+            <center><h1>Data da coleta</h1></center>
+            <div style="display:flex; flex-direction: row; justify-content: center; align-items: center">
+                <h1>Temperatura (°C)</h1>
+                <div class="ct-chart ct-major-seventh" id="chart2"></div>
+            </div>
+            <center><h1>Data da coleta</h1></center>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.js"></script>
-
             <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/locale/pt-br.js"></script>
             <script src="https://cdn.jsdelivr.net/chartist.js/latest/chartist.min.js"></script>
             <script>
